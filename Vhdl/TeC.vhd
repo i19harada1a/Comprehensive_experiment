@@ -192,7 +192,7 @@ begin
       -- Console(OUTPUT)
       AddrLed => ADDR_LED,
       DataLed => DATA_LED,
-      RunLed  => RUN_LED, 
+      RunLed  => RUN_LED,
       CrryLed => C_LED,
       SignLed => S_LED,
       ZeroLed => Z_LED,

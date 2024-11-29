@@ -128,7 +128,7 @@ begin
       end if;
       BtnDly1 <= RstSw & CcwSw & CwSw            -- 押しボタンの入力を
                  & RunSw & StopSw & SetSw        --  クロックに同期しておく
-                 & IncSw & DecSw & WrtSw;        -- 
+                 & IncSw & DecSw & WrtSw;        --
     end if;
   end process;
 

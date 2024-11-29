@@ -29,8 +29,33 @@ entity Cpu is
          DbgWe   : in  std_logic
          );
 end Cpu;
-
 architecture Behavioral of Cpu is
+  component Sequencer is
+    Port ( Clk   : in  STD_LOGIC;
+           -- 入力
+           Reset : in  STD_LOGIC;
+           OP    : in  STD_LOGIC_vector (3 downto 0);
+           Rd    : in  STD_LOGIC_vector (1 downto 0);
+           Rx    : in  STD_LOGIC_vector (1 downto 0);
+           Flag  : in  STD_LOGIC_vector (2 downto 0);   -- CSZ
+           Stop  : in  STD_LOGIC;
+           -- CPU内部の制御用に出力
+           LI    : out STD_LOGIC;
+           LD    : out STD_LOGIC;
+           LF    : out STD_LOGIC;
+           LR    : out STD_LOGIC;
+           LP    : out STD_LOGIC;
+           WR  : in  STD_LOGIC_vector (1 downto 0);
+           SelDin  : in  STD_LOGIC;
+           SelAddr    : in  STD_LOGIC_vector (1 downto 0);
+           SelPC    : in  STD_LOGIC;
+           AddPC    : in  STD_LOGIC;
+           AddSP  : in  STD_LOGIC_vector (1 downto 0);
+           -- CPU外部へ出力
+           We    : out  STD_LOGIC;
+           Halt  : out  STD_LOGIC
+           );
+  end component;
 
 -- CPU Register
   signal G0  : std_logic_vector(7 downto 0);
@@ -46,6 +71,54 @@ architecture Behavioral of Cpu is
   signal OP  : std_logic_vector(3 downto 0);
   signal Rd  : std_logic_vector(1 downto 0);
   signal Rx  : std_logic_vector(1 downto 0);
+
+-- オペコード
+-- STCK: PUSH, POP, SFT: shift
+  constant OP_NO  : std_logic_vector(3 downto 0) := "0000"; -- 0
+  constant OP_LD  : std_logic_vector(3 downto 0) := "0001"; -- 1
+  constant OP_ST  : std_logic_vector(3 downto 0) := "0010"; -- 2
+  constant OP_ADD : std_logic_vector(3 downto 0) := "0011"; -- 3
+  constant OP_SUB : std_logic_vector(3 downto 0) := "0100"; -- 4
+  constant OP_CMP : std_logic_vector(3 downto 0) := "0101"; -- 5
+  constant OP_AND : std_logic_vector(3 downto 0) := "0110"; -- 6
+  constant OP_OR  : std_logic_vector(3 downto 0) := "0111"; -- 7
+  constant OP_XOR : std_logic_vector(3 downto 0) := "1000"; -- 8
+  constant OP_SFT : std_logic_vector(3 downto 0) := "1001"; -- 9
+  constant OP_JMP : std_logic_vector(3 downto 0) := "1010"; -- A
+  constant OP_CALL: std_logic_vector(3 downto 0) := "1011"; -- B
+  constant OP_STCK: std_logic_vector(3 downto 0) := "1101"; -- D
+  constant OP_RET : std_logic_vector(3 downto 0) := "1110"; -- E
+  constant OP_HALT: std_logic_vector(3 downto 0) := "1111"; -- F
+
+-- DR
+  signal DR  : std_logic_vector(7 downto 0);
+
+-- ここから一旦おいておく！！！ -------------------------
+-- 内部バス
+  signal EA    : std_logic_vector(7 downto 0); -- Effective Address
+  signal RegRd : std_logic_vector(7 downto 0); -- Reg[Rd]
+  signal RegRx : std_logic_vector(7 downto 0); -- Reg[Rx]
+  signal Alu   : std_logic_vector(8 downto 0); -- ALU出力（キャリー付)
+  signal Zero  : std_logic;                    -- ALUが0か？
+  signal SftRd : std_logic_vector(8 downto 0); -- RegRdをシフトしたもの
+-- ここまで一旦おいておく！！！ -------------------------
+
+-- シーケンサーファイルは別においたほうがいいかも
+-- 内部制御線（ステートマシンの出力)
+-- 内部の制御信号をレジスタごとに細分化したもの？
+
+  signal LI    : std_logic;
+  signal LD    : std_logic;
+  signal LF    : std_logic;
+  signal LR    : std_logic;
+  signal LP    : std_logic;
+  signal WR  : std_logic_vector (1 downto 0);
+  signal SelDin  : std_logic;
+  signal SelAddr    :   std_logic_vector (1 downto 0);
+  signal SelPC    :   std_logic;
+  signal AddPC    :   std_logic;
+  signal AddSP  :   std_logic_vector (1 downto 0);
+
 
 begin
 -- 仮の信号を出力しておく
