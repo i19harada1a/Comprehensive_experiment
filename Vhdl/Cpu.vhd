@@ -157,7 +157,8 @@ begin
   (RegRd(0) & '0' & RegRd(7 downto 1));                         -- SHRL
 
 -- OP による ALU の計算
-  Alu <= ('0' & RegRd) + ('0' & DR) when OP=OP_ADD else
+  Alu <= ('0' & DR) when OP=OP_LD else
+         ('0' & RegRd) + ('0' & DR) when OP=OP_ADD else
          ('0' & RegRd) - ('0' & DR) when OP=OP_SUB or OP=OP_CMP else
          ('0' & RegRd)and('0' & DR) when OP=OP_AND else
          ('0' & RegRd)or ('0' & DR) when OP=OP_OR  else
