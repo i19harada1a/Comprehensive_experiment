@@ -1,5 +1,5 @@
 -- Sequencer.vhd
--- 情報電子工学総合実験(CE1)用 TeC CPU の制御部
+-- (CE1) TeC CPU 
 --
 -- (c)2014 - 2019 by Dept. of Computer Science and Electronic Engineering,
 --            Tokuyama College of Technology, JAPAN
@@ -11,26 +11,27 @@ use ieee.std_logic_unsigned.all;
  
 entity Sequencer is
   Port ( Clk   : in  STD_LOGIC;
-         -- 入力
+         -- 
          Reset : in  STD_LOGIC;
          OP    : in  STD_LOGIC_VECTOR (3 downto 0);
          Rd    : in  STD_LOGIC_VECTOR (1 downto 0);
          Rx    : in  STD_LOGIC_VECTOR (1 downto 0);
          Flag  : in  STD_LOGIC_VECTOR (2 downto 0); -- CSZ
          Stop  : in  STD_LOGIC;
-         -- CPU内部の制御用に出力
-         LI    : out STD_LOGIC;
+         -- CPU
+         LIC    : out STD_LOGIC;
          LD    : out STD_LOGIC;
          LF    : out STD_LOGIC;
          LR    : out STD_LOGIC;
          LP    : out STD_LOGIC;
-         WR    : in  STD_LOGIC_vector (1 downto 0);
-         SelDin  : in  STD_LOGIC;
-         SelAddr  : in  STD_LOGIC_vector (1 downto 0);
-         SelPC    : in  STD_LOGIC;
-         AddPC    : in  STD_LOGIC;
-         AddSP  : in  STD_LOGIC;
-         -- CPU外部へ出力
+         WR    : out  STD_LOGIC_vector (1 downto 0);
+         SelDin  : out  STD_LOGIC;
+         SelAddr  : out  STD_LOGIC_vector (1 downto 0);
+         SelPC    : out  STD_LOGIC;
+			SelSP		: out	STD_LOGIC;
+         AddPC    : out  STD_LOGIC;
+         AddSP  : out  STD_LOGIC;
+         -- CPU
          We    : out  STD_LOGIC;
          Halt  : out  STD_LOGIC
          );
@@ -109,24 +110,24 @@ begin
   --  JMP     JZ and Z Flag       JC and C Flag       JM and S Flag
   JmpCnd <= Jmp or (Jz and Flag(0)) or (Jc and Flag(2)) or (Jm and Flag(1));
   
-  LI  <= DecSt(0); 
+  LIC  <= DecSt(0); 
   LD  <= DecSt(1) or (DecSt(2) and not Immd) or DecSt(5) or DecSt(9) or DecSt(11);
-  LF <= '1' when (DecSt(3)='1' and OP/="0001") or (Detst(5)='1' and OP/="1010") else '0';    -- OP /=LD and OP /=JMP
+  LF <= '1' when (DecSt(3)='1' and OP/="0001") or (DecSt(5)='1' and OP/="1010" and Jmpcnd = '1') else '0';    -- OP /=LD and OP /=JMP
   LR  <= '1' when (DecSt(3)='1' and OP/="0101") or  DecSt(10)='1' or DecSt(12)='1' else '0';
   LP <= DecSt(1) or DecSt(2) or DecSt(4) or DecSt(5) or DecSt(6) 
-        DecSt(7) or DecSt(12);
+        or DecSt(7) or DecSt(12);
   WR <= Rd when DecSt(3)='1' or DecSt(10)='1'
            else "11" when DecSt(6)='1' or DecSt(8)='1' or DecSt(9)='1' or DecSt(11)='1'
            else "00";
   SelDin    <=  DecSt(6);  
-  SelAddr   <=  "00" when (DecSt(2)='1' and not Immd) or DecSt(4)='1'  else    -- "00"=EA
-                "01" when DecSt(6)='1' or DecSt(8)='1'                         -- "01"=SP+ADD
+  SelAddr   <=  "00" when (DecSt(2)='1' and Immd='0') or DecSt(4)='1'  else    -- "00"=EA
+                "01" when DecSt(6)='1' or DecSt(8)='1' else                    -- "01"=SP+ADD
                 "10" when DecSt(9)='1' or DecSt(11)='1' else                   -- "10"=SP           
                 "11";                                                          -- "11"=PC
   SelPC  <=  '1' when DecSt(1)='1' or DecSt(2)='1' or DecSt(4)='1' or DecSt(6)='1' else '0';
   SelSP <= '1' when DecSt(6)='1' or DecSt(8)='1' or DecSt(9)='1' or DecSt(11)='1' else '0';
   AddPC <= '1' when DecSt(1)='1' or DecSt(2)='1' or DecSt(4)='1' or DecSt(6)='1' else '0';
-  AddSP  <=  when "1" when DecSt(6)='1' or DecSt(8)='1' else "0";                                                 
+  AddSP  <=  '1' when DecSt(6)='1' or DecSt(8)='1' else '0';                                                 
   We    <= DecSt(4)  or DecSt(6) or DecSt(8);
   Halt  <= DecSt(13);
  

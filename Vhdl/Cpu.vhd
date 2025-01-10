@@ -1,5 +1,5 @@
 -- Cpu.vhd
--- 情報電子工学総合実験(CE1)用 TeC の CPU 部分 !!! ひな形 !!!
+-- (CE1) TeC  CPU  !!!  !!!
 --
 -- (c)2014 - 2024 by Dept. of Computer Science and Electronic Engineering,
 --            Tokuyama College of Technology, JAPAN
@@ -11,11 +11,11 @@ use ieee.std_logic_unsigned.all;
 
 entity Cpu is
   Port ( Clk     : in  std_logic;
-         -- 制御
+         -- 
          Reset   : in  std_logic;
          Stop    : in  std_logic;
          Halt    : out std_logic;
-         Li      : out std_logic;                       -- 命令フェッチ
+         Li      : out std_logic;                       -- 
          Flags   : out std_logic_vector (2 downto 0);   -- CSZ
          -- RAM
          Addr    : out std_logic_vector (7 downto 0);
@@ -32,26 +32,27 @@ end Cpu;
 architecture Behavioral of Cpu is
   component Sequencer is
     Port ( Clk   : in  STD_LOGIC;
-           -- 入力
+           -- 
            Reset : in  STD_LOGIC;
            OP    : in  STD_LOGIC_vector (3 downto 0);
            Rd    : in  STD_LOGIC_vector (1 downto 0);
            Rx    : in  STD_LOGIC_vector (1 downto 0);
            Flag  : in  STD_LOGIC_vector (2 downto 0);   -- CSZ
            Stop  : in  STD_LOGIC;
-           -- CPU内部の制御用に出力
-           LI    : out STD_LOGIC;
+           -- CPU
+           LIC    : out STD_LOGIC;
            LD    : out STD_LOGIC;
            LF    : out STD_LOGIC;
            LR    : out STD_LOGIC;
            LP    : out STD_LOGIC;
-           WR  : in  STD_LOGIC_vector (1 downto 0);
-           SelDin  : in  STD_LOGIC;
-           SelAddr    : in  STD_LOGIC_vector (1 downto 0);
-           SelPC    : in  STD_LOGIC;
-           AddPC    : in  STD_LOGIC;
-           AddSP  : in  STD_LOGIC;
-           -- CPU外部へ出力
+           WR  : out  STD_LOGIC_vector (1 downto 0);
+           SelDin  : out  STD_LOGIC;
+           SelAddr    : out  STD_LOGIC_vector (1 downto 0);
+           SelPC    : out  STD_LOGIC;
+			  SelSP    : out STD_LOGIC;
+           AddPC    : out  STD_LOGIC;
+           AddSP  : out  STD_LOGIC;
+           -- CPU
            We    : out  STD_LOGIC;
            Halt  : out  STD_LOGIC
            );
@@ -62,6 +63,8 @@ architecture Behavioral of Cpu is
   signal G1  : std_logic_vector(7 downto 0);
   signal G2  : std_logic_vector(7 downto 0);
   signal SP  : std_logic_vector(7 downto 0);
+-- Calculation variable
+  signal SP_c : std_logic_vector(7 downto 0);
 
 -- PSW
   signal PC  : std_logic_vector(7 downto 0);
@@ -72,7 +75,7 @@ architecture Behavioral of Cpu is
   signal Rd  : std_logic_vector(1 downto 0);
   signal Rx  : std_logic_vector(1 downto 0);
 
--- オペコード
+-- 
 -- STCK: PUSH, POP, SFT: shift
   constant OP_NO  : std_logic_vector(3 downto 0) := "0000"; -- 0
   constant OP_LD  : std_logic_vector(3 downto 0) := "0001"; -- 1
@@ -93,70 +96,71 @@ architecture Behavioral of Cpu is
 -- DR
   signal DR  : std_logic_vector(7 downto 0);
 
--- ここから一旦おいておく！！！ -------------------------
--- 内部バス（計算結果とかを格納する変数）
+--  -------------------------
+-- 
   signal EA    : std_logic_vector(7 downto 0); -- Effective Address
   signal RegRd : std_logic_vector(7 downto 0); -- Reg[Rd]
   signal RegRx : std_logic_vector(7 downto 0); -- Reg[Rx]
-  signal Alu   : std_logic_vector(8 downto 0); -- ALU出力（キャリー付)
-  signal Zero  : std_logic;                    -- ALUが0か？
-  signal SftRd : std_logic_vector(8 downto 0); -- RegRdをシフトしたもの
-  signal ADD   : std_logic_vector(7 downto 0); -- アドレッシングモードによるADD
--- ここまで一旦おいておく！！！ -------------------------
+  signal Alu   : std_logic_vector(8 downto 0); -- ALU)
+  signal Zero  : std_logic;                    -- ALU0
+  signal SftRd : std_logic_vector(8 downto 0); -- RegRd
+--  -------------------------
 
--- シーケンサーファイルは別においたほうがいいかも
--- 内部制御線（ステートマシンの出力)
--- 内部の制御信号をレジスタごとに細分化したもの？
-
-  signal LI      : std_logic;
-  signal LD      : std_logic;
-  signal LF      : std_logic;
-  signal LR      : std_logic;
-  signal LP      : std_logic;
-  signal WR      : std_logic_vector (1 downto 0);
-  signal SelDin  : std_logic;
-  signal SelAddr : std_logic_vector (1 downto 0);
-  signal SelPC   : std_logic;
-  signal AddPC   : std_logic;
-  signal AddSP   : std_logic;
+-- 
+-- )
+-- 
+  -- input signal from control device
+  -- if the signal is not vector, it means enable signal.
+  signal LIC      : std_logic;                        -- Load Insraction
+  signal LD      : std_logic;                         -- Load Data
+  signal LF      : std_logic;                         -- Load Flag
+  signal LR      : std_logic;                         -- Load Register
+  signal LP      : std_logic;                         -- Load Program counter
+  signal WR      : std_logic_vector (1 downto 0);     -- Write Register
+  signal SelDin  : std_logic;                         -- Select Datain (BUS)
+  signal SelAddr : std_logic_vector (1 downto 0);     -- Select Address (BUS)
+  signal SelPC   : std_logic;                         -- Select Program Counter
+  signal SelSP   : std_logic;                         -- Select Stack Pointer (select value ALU or result of ADD)
+  signal AddPC   : std_logic;                         -- Add Program Counter (select value 0 or 1)
+  signal AddSP   : std_logic;                         -- Add Stack Pointer (select value -1 or 1)
 
 
 begin
--- 仮の信号を出力しておく
-  Halt <= '0';
-  Addr <= "00000000";
-  Dout <= "00000000";
-  We   <= '0';
-  Li   <= '0';
+-- 
+  --Halt <= '0';
+  --Addr <= "00000000";
+  --Dout <= "00000000";
+  --We   <= '0';
+  --Li   <= '0';
 
--- フラグ
+-- 
   Flags <= FLG;
-  Li <= LI;
+  Li <= LIC;
 
--- 制御部
-  seq1: Sequencer Port map (Clk, Reset, OP, Rd, Rx, Flag, Stop,
-                            LI, LD, LF, LR, LP, WR, SelDin, SelAddr,
-                            SelPC, AddPC, AddSP, We, Halt);
+-- 
+  seq1: Sequencer Port map (Clk, Reset, OP, Rd, Rx, FLG, Stop,
+                            LIC, LD, LF, LR, LP, WR, SelDin, SelAddr,
+                            SelPC, AddPC, AddSP, SelSP, We, Halt);
 -- BUS
--- アドレスバスへの出力信号の選択  
+--   
   Addr <= EA when SelAddr="00" else
-          SP+ADD when SelAddr="01" else
+          SP_c when SelAddr="01" else
           SP when SelAddr="10" else PC;
 
--- EA の計算 
+-- EA  
   EA <= DR + RegRx;
 
--- Dout の選択  
-  Dout <= RegRd when SelDin = "0" else PC;
+-- Dout   
+  Dout <= RegRd when SelDin = '0' else PC;
 
--- ALU の制御
+-- ALU 
 
--- シフト演算
+-- 
   SftRd <= (RegRd & '0') when Rx(1)='0' else                    -- SHLA/SHLL
   (RegRd(0) & RegRd(7) & RegRd(7 downto 1)) when Rx(0)='0' else -- SHRA
   (RegRd(0) & '0' & RegRd(7 downto 1));                         -- SHRL
 
--- OP による ALU の計算
+-- OP  ALU 
   Alu <= ('0' & DR) when OP=OP_LD else
          ('0' & RegRd) + ('0' & DR) when OP=OP_ADD else
          ('0' & RegRd) - ('0' & DR) when OP=OP_SUB or OP=OP_CMP else
@@ -167,29 +171,29 @@ begin
 
   Zero <= '1' when ALU(7 downto 0)="00000000" else '0';
 
--- IR,DR の制御．クロックの立ち上がりに同期する．
+-- IR,DR 
 process(Clk)
 begin
   if (Clk'event and Clk='1') then
-    if (IrLd='1') then
+    if (LIC='1') then
       OP <= Din(7 downto 4);
       Rd <= Din(3 downto 2);
       Rx <= Din(1 downto 0);
     end if;
-    if (DrLd='1') then
+    if (LD='1') then
       DR <= Din;
     end if;
   end if;
 end process;
 
--- PC の制御
-  process(Clk, Reset)
+-- PC 
+  process(Clk, Reset,LP)
   begin
     if (Reset='1') then
       PC <= "00000000";
     elsif (Clk'event and Clk='1' and LP = '1')  then
       if (SelPC ='0') then
-        PC <= EA
+        PC <= EA;
       elsif (AddPC = '1') then
         PC <= PC + 1;
       elsif (DbgWe='1' and DbgAin="100") then
@@ -198,11 +202,12 @@ end process;
     end if;
   end process;
   
--- CPU レジスタの制御
+-- CPU 
+  -- GR
   RegRd <= G0 when Rd="00" else G1 when Rd="01" else
            G2 when Rd="10" else SP;
            
-  --アドレッシングモードで選択されたレジスタ
+  -- XR
   RegRx <= G1 when Rx="01" else G2 when Rx="10" else "00000000";
 
   process(Clk, Reset)
@@ -214,17 +219,23 @@ end process;
       SP  <= "00000000";
     elsif (Clk'event and Clk='1') then
 
+	 -- Write to the register.
     if (LR='1') then
         case WR is
           when "00" => G0 <= Alu(7 downto 0);
           when "01" => G1 <= Alu(7 downto 0);
           when "10" => G2 <= Alu(7 downto 0);
-          when others => SP <= Alu(7 downto 0);
+          when others => 
+						if (SelSP='0') then
+							SP <= Alu(7 downto 0);
+						else
+							SP <= SP_c;
+						end if;
         end case;
-      elsif (AddSP="0") then
-        SP <= SP + 1;
-      elsif (AddSP="1") then
-        SP <= Sp - 1;
+      elsif (AddSP='0') then
+        SP_c <= SP + 1;
+      elsif (AddSP='1') then
+        SP_c <= SP - 1;
       elsif (DbgWe='1') then
         case DbgAin is
           when "000" => G0 <= DbgDin;
@@ -237,13 +248,13 @@ end process;
     end if;
   end process;
 
--- フラグの制御
+-- 
   process(Clk, Reset)
   begin
     if (Reset='1') then
       FLG <= "000";
     elsif (Clk'event and Clk='1') then
-      -- ALUの計算結果をフラグに代入する．
+      -- ALU
       if (LF='1') then
         FLG(2) <= Alu(8);                -- Carry
         FLG(1) <= Alu(7);                -- Sign
@@ -254,7 +265,7 @@ end process;
     end if;
   end process;
   
--- デバッグ用のコンソール接続
+-- 
   DbgDout <= G0 when DbgAin="000" else
              G1 when DbgAin="001" else
              G2 when DbgAin="010" else
