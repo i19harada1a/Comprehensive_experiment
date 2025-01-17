@@ -15,7 +15,7 @@ entity Cpu is
          Reset   : in  std_logic;
          Stop    : in  std_logic;
          Halt    : out std_logic;
-         Li      : out std_logic;                       -- 
+         Li      : out std_logic;                       -- Fetch
          Flags   : out std_logic_vector (2 downto 0);   -- CSZ
          -- RAM
          Addr    : out std_logic_vector (7 downto 0);
@@ -65,6 +65,7 @@ architecture Behavioral of Cpu is
   signal SP  : std_logic_vector(7 downto 0);
 -- Calculation variable
   signal SP_c : std_logic_vector(7 downto 0);
+  signal PC_c : std_logic_vector(7 downto 0);
 
 -- PSW
   signal PC  : std_logic_vector(7 downto 0);
@@ -126,12 +127,6 @@ architecture Behavioral of Cpu is
 
 
 begin
--- 
-  --Halt <= '0';
-  --Addr <= "00000000";
-  --Dout <= "00000000";
-  --We   <= '0';
-  --Li   <= '0';
 
 -- 
   Flags <= FLG;
@@ -140,18 +135,22 @@ begin
 -- 
   seq1: Sequencer Port map (Clk, Reset, OP, Rd, Rx, FLG, Stop,
                             LIC, LD, LF, LR, LP, WR, SelDin, SelAddr,
-                            SelPC, AddPC, AddSP, SelSP, We, Halt);
+                            SelPC, SelSP, AddPC, AddSP, We, Halt);
 -- BUS
+
+	PC_c <= PC+1 when AddPC='1' else PC;
+	SP_c <= SP+1 when AddSP='0' else SP-1;
+
 --   
   Addr <= EA when SelAddr="00" else
           SP_c when SelAddr="01" else
-          SP when SelAddr="10" else PC;
+          SP when SelAddr="10" else PC_c;
 
 -- EA  
   EA <= DR + RegRx;
 
 -- Dout   
-  Dout <= RegRd when SelDin = '0' else PC;
+  Dout <= RegRd when SelDin = '0' else PC_c;
 
 -- ALU 
 
@@ -161,8 +160,7 @@ begin
   (RegRd(0) & '0' & RegRd(7 downto 1));                         -- SHRL
 
 -- OP  ALU 
-  Alu <= ('0' & DR) when OP=OP_LD else
-         ('0' & RegRd) + ('0' & DR) when OP=OP_ADD else
+  Alu <= ('0' & RegRd) + ('0' & DR) when OP=OP_ADD else
          ('0' & RegRd) - ('0' & DR) when OP=OP_SUB or OP=OP_CMP else
          ('0' & RegRd)and('0' & DR) when OP=OP_AND else
          ('0' & RegRd)or ('0' & DR) when OP=OP_OR  else
@@ -170,8 +168,8 @@ begin
          SftRd when OP=OP_SFT else ('0' & DR); 
 
   Zero <= '1' when ALU(7 downto 0)="00000000" else '0';
-
--- IR,DR 
+  
+-- IR,DR
 process(Clk)
 begin
   if (Clk'event and Clk='1') then
@@ -187,21 +185,20 @@ begin
 end process;
 
 -- PC 
-  process(Clk, Reset,LP)
+  process(Clk, Reset, LP)
   begin
     if (Reset='1') then
       PC <= "00000000";
     elsif (Clk'event and Clk='1' and LP = '1')  then
-      if (SelPC ='0') then
+      if (SelPC ='1') then
         PC <= EA;
-      elsif (AddPC = '1') then
-        PC <= PC + 1;
+      elsif (LP = '1') then
+        PC <= PC_c;
       elsif (DbgWe='1' and DbgAin="100") then
         PC <= DbgDin;
       end if;
     end if;
   end process;
-  
 -- CPU 
   -- GR
   RegRd <= G0 when Rd="00" else G1 when Rd="01" else
@@ -219,6 +216,9 @@ end process;
       SP  <= "00000000";
     elsif (Clk'event and Clk='1') then
 
+	--
+	--
+
 	 -- Write to the register.
     if (LR='1') then
         case WR is
@@ -232,10 +232,6 @@ end process;
 							SP <= SP_c;
 						end if;
         end case;
-      elsif (AddSP='0') then
-        SP_c <= SP + 1;
-      elsif (AddSP='1') then
-        SP_c <= SP - 1;
       elsif (DbgWe='1') then
         case DbgAin is
           when "000" => G0 <= DbgDin;

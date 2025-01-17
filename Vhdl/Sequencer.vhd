@@ -83,12 +83,12 @@ begin
            "0100" when DecSt(1)='1' and OP="0010" else   -- ST
            "0101" when DecSt(1)='1' and OP="1010" else   -- JMP/JZ/JC/JM
            "0110" when DecSt(1)='1' and OP="1011" else   -- CALL
-           "0111" when DecSt(6)='1'                                                                                                                                                                           else
+           "0111" when DecSt(6)='1'               else
            "1000" when DecSt(1)='1' and OP="1101" and Rx="00" else -- PUSH
            "1001" when DecSt(1)='1' and OP="1101" and Rx="10" else --POP
            "1010" when DecSt(9)='1'               else
            "1011" when DecSt(1)='1' and OP="1110" else -- RET
-           "1100" when DecSt(1)='1' else
+           "1100" when DecSt(11)='1' else
            "1101";                                     -- HALT/ERROR
  
   process(Clk, Reset)
@@ -110,10 +110,10 @@ begin
   --  JMP     JZ and Z Flag       JC and C Flag       JM and S Flag
   JmpCnd <= Jmp or (Jz and Flag(0)) or (Jc and Flag(2)) or (Jm and Flag(1));
   
-  LIC  <= DecSt(0); 
+  LIC  <= DecSt(0);
   LD  <= DecSt(1) or (DecSt(2) and not Immd) or DecSt(5) or DecSt(9) or DecSt(11);
   LF <= '1' when (DecSt(3)='1' and OP/="0001") or (DecSt(5)='1' and OP/="1010" and Jmpcnd = '1') else '0';    -- OP /=LD and OP /=JMP
-  LR  <= '1' when (DecSt(3)='1' and OP/="0101") or  DecSt(10)='1' or DecSt(12)='1' else '0';
+  LR  <= '1' when (DecSt(3)='1' and OP/="0101") or DecSt(6)='1' or  DecSt(8)='1' or DecSt(9)='1' or DecSt(10)='1' or DecSt(11)='1' else '0';
   LP <= DecSt(1) or DecSt(2) or DecSt(4) or DecSt(5) or DecSt(6) 
         or DecSt(7) or DecSt(12);
   WR <= Rd when DecSt(3)='1' or DecSt(10)='1'
@@ -124,7 +124,7 @@ begin
                 "01" when DecSt(6)='1' or DecSt(8)='1' else                    -- "01"=SP+ADD
                 "10" when DecSt(9)='1' or DecSt(11)='1' else                   -- "10"=SP           
                 "11";                                                          -- "11"=PC
-  SelPC  <=  '1' when DecSt(1)='1' or DecSt(2)='1' or DecSt(4)='1' or DecSt(6)='1' else '0';
+  SelPC  <=  '1' when DecSt(5)='1' or DecSt(7)='1' or DecSt(12)='1' else '0';
   SelSP <= '1' when DecSt(6)='1' or DecSt(8)='1' or DecSt(9)='1' or DecSt(11)='1' else '0';
   AddPC <= '1' when DecSt(1)='1' or DecSt(2)='1' or DecSt(4)='1' or DecSt(6)='1' else '0';
   AddSP  <=  '1' when DecSt(6)='1' or DecSt(8)='1' else '0';                                                 
